@@ -25,7 +25,8 @@ op = Enum('operation', op_list)
 
 class expr(object):
     def __init__(self, line):
-        # if line.startswith()
+        if line.startswith('#'):
+
         sp = line.strip(';').split('=')
         self.dst = sp[0].strip()
         
