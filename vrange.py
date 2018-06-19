@@ -2,10 +2,11 @@ class XNum:
     def __init__(self, num):
         if isinstance(num, XNum):
             self.num = num.num
+            return
         elif isinstance(num, str):
             if num != '+' and num != '-':
                 raise ValueError('string not infinity')
-            self.num = num
+        self.num = num
 
     def __str__(self):
         return '{}'.format(self.num)

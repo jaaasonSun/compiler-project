@@ -22,7 +22,6 @@ for f in ftab:
 operation = Enum('operation', op_list)
 
 
-
 class expr(object):
     def __init__(self, line):
         if line.startswith('#'):
@@ -47,7 +46,8 @@ class expr(object):
             # self.op = operation[right_part[0]]
             self.op = right_part[0]
             index = sp[1].find('(')                         # ) index
-            self.src = sp[1][index + 1, -1].split(', ')
+            # print(sp[1], index)
+            self.src = sp[1][index + 1: -1].split(', ')
         else:                                               # operation
             self.op = right_part[1]
             self.src = []
@@ -62,18 +62,12 @@ class expr(object):
                 self.src.append(vrange.VRange(num, num))
             else:
                 self.src.append(right_part[2])
-            
-
-
-
-
-
-
-        
-        pass
 
     def __str__(self):
-        return "haha"
+        s = "dst: " + self.dst + '\n'
+        s += 'op: ' + self.op + '\n'
+        s += "src: " + str(self.src) 
+        return s
 
     __repr__ = __str__
 
