@@ -10,6 +10,8 @@ class XNum:
     def __str__(self):
         return '{}'.format(self.num)
 
+    __repr__ = __str__
+
     def __lt__(self, other):
         if self == other:
             return False
@@ -62,21 +64,27 @@ class XNum:
         if self.num == 0 or other.num == 0:
             return XNum(0)
         elif isinstance(self.num, str) or isinstance(self.num, str):
-            if (self.num < 0 and other.num < 0) or \
-               (self.num > 0 and other.num > 0):
+            if (self < XNum(0) and other < XNum(0)) or \
+               (self > XNum(0) and other > XNum(0)):
                 return XNum('+')
             else:
                 return XNum('-')
         else:
             return self.num * other.num
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         if other.num == 0:
-            return XNum('+') if self.num > 0 else XNum('-')
+            return XNum('+') if self > XNum(0) else XNum('-')
         elif other.num == '+' or other.num == '-':
+            if isinstance(self.num, str):
+                raise ValueError('inf div inf')
             return XNum(0)
-        elif self.num == '+' or self.num == '-':
-            return XNum(self.num)
+        elif (self.num == '+' and other.num > 0) or \
+             (self.num == '-' and other.num < 0):
+            return XNum('+')
+        elif (self.num == '-' and other.num > 0) or \
+             (self.num == '+' and other.num < 0):
+            return XNum('-')
         elif isinstance(self.num, int) and isinstance(other.num, int):
             return XNum(self.num // other.num)
         else:
@@ -92,6 +100,8 @@ class Future:
         return 'ft({}){}{}'.format(self.name, '' if self.delta == 0 else
                                    ('+' if self.delta > 0 else '-'),
                                    '' if self.delta == 0 else abs(self.delta))
+
+    __repr__ = __str__
 
 
 class VRange:
@@ -118,6 +128,8 @@ class VRange:
     def __str__(self):
         return "[{}, {}]".format(self.begin, self.end)
 
+    __repr__ = __str__
+
     def __add__(self, other):
         if self.isEmpty or other.isEmpty:
             return VRange()
@@ -135,7 +147,7 @@ class VRange:
                 self.end*other.begin, self.end*other.end]
         return VRange(min(ends), max(ends))
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         if self.isEmpty or other.isEmpty:
             return VRange()
         if other.begin <= 0 and 0 <= other.end:
