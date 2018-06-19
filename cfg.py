@@ -336,3 +336,20 @@ for func in ftab:
                 b.constraints.append(expr(l.strip(';')))
 
 
+for func in ftab:
+    dom = {}
+    for b in func.blocks:
+        dom[b.name] = set([b.name])
+    change = True
+    while change:
+        change = False
+        for b in func.blocks:
+            if len(b.from) == 0:
+                break
+            predDom = dom[b.from[0]]
+            for pred in b.from:
+                predDom = predDom.intersect(dom[pred])
+            oldDom = dom[b.name].copy()
+            dom[b.name] = dom[b.name].union(predDom)
+            if len(dom[b.name].difference(oldDom)) != 0:
+                change = True
