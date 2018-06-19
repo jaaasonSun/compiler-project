@@ -1,6 +1,7 @@
 import re
 from enum import Enum
 import symtab
+import vrange
 
 
 tele = re.compile("(<.+?>)")
@@ -18,19 +19,63 @@ op_list = ['plus', 'minus', 'mul', 'div', 'assign', 'int', 'float', 'g', 'ge', '
 for f in ftab:
     op_list.append(f.name)
 
-op = Enum('operation', op_list)
-
+operation = Enum('operation', op_list)
 
 
 
 class expr(object):
     def __init__(self, line):
         if line.startswith('#'):
+            # PHI
+            sp = line.split('=')
+            self.dst = sp[0].split()[1]
+            # self.op = operation.phi
+            self.op = 'phi'
+            self.src = sp[1][6:-1].split(', ')
+            return
+            
+        # function / operation
+        sp = line.strip(';').split(' = ')
+        self.dst = sp[0]
+        right_part = sp[1].split()
+        if right_part[0].startswith('('):                   # ) int or float
+            # self.op = operation[right_part[0].strip('()')]
+            self.op = right_part[0].strip('()')
+            self.src = []
+            self.src.append(right_part[1])
+        elif right_part[1].startswith('('):                 # ) function
+            # self.op = operation[right_part[0]]
+            self.op = right_part[0]
+            index = sp[1].find('(')                         # ) index
+            self.src = sp[1][index + 1, -1].split(', ')
+        else:                                               # operation
+            self.op = right_part[1]
+            self.src = []
+            if right_part[0].isnumeric():
+                num = int(right_part[0])
+                self.src.append(vrange.VRange(num, num))
+            else:
+                self.src.append(right_part[0])
+            
+            if right_part[2].isnumeric():
+                num = int(right_part[2])
+                self.src.append(vrange.VRange(num, num))
+            else:
+                self.src.append(right_part[2])
+            
 
-        sp = line.strip(';').split('=')
-        self.dst = sp[0].strip()
+
+
+
+
+
         
         pass
+
+    def __str__(self):
+        return "haha"
+
+    __repr__ = __str__
 
 
 class block_parser(object):
@@ -147,5 +192,4 @@ for func in ftab:
 
     func.blocks = blocks
     
-
 
