@@ -111,6 +111,7 @@ class block_parser(object):
             self.lines.pop()
         
         self.name = self.lines[0].strip(':')
+        self.pre = []
         self.goto = []
         self.cond = []
         for i in range(len(self.lines)):
@@ -226,10 +227,13 @@ for h in range(len(ftab)):
                 continue
 
             index = 0
+            flag = False
             for index in range(len(func.blocks)):
                 if func.blocks[index].lines[0].startswith(b.goto[i]):
+                    flag = True
                     break
-            if index == len(func.blocks):
+            # if index == len(func.blocks):
+            if not flag:
                 print("not found")
                 continue
             # find the block
@@ -337,6 +341,19 @@ for func in ftab:
 
 
 for func in ftab:
+    for b in func.blocks:
+        for g in b.goto:
+            flag = False
+            for index in range(len(func.blocks)):
+                if func.blocks[index].lines[0].startswith(g):
+                    flag = True
+                    break
+            # print(index, b.name)
+            if flag:
+                func.blocks[index].pre.append(b.name)
+
+
+for func in ftab:
     dom = {}
     for b in func.blocks:
         dom[b.name] = set([b.name])
@@ -344,10 +361,10 @@ for func in ftab:
     while change:
         change = False
         for b in func.blocks:
-            if len(b.from) == 0:
+            if len(b.pre) == 0:
                 break
-            predDom = dom[b.from[0]]
-            for pred in b.from:
+            predDom = dom[b.pre[0]]
+            for pred in b.pre:
                 predDom = predDom.intersect(dom[pred])
             oldDom = dom[b.name].copy()
             dom[b.name] = dom[b.name].union(predDom)
