@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+import ast
 import symtab
 import vrange
 
@@ -7,6 +8,7 @@ import vrange
 tele = re.compile("(<.+?>)")
 cond_tele = re.compile("\((.+)\)")
 num_tele = re.compile("^\d+$")
+real_tele = re.compile(r'^\-?[0-9\.]+$')
 
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
@@ -15,15 +17,30 @@ filename = 'benchmark/t2.ssa'
 
 ftab, stab = symtab.get_symtab(filename)
 
-op_list = ['plus', 'minus', 'mul', 'div', 'assign', 'int', 'float', 'g', 'ge', 'l', 'le', 'e', 'ne', 'phi']
-for f in ftab:
-    op_list.append(f.name)
+# op_list = ['plus', 'minus', 'mul', 'div', 'assign', 'int', 'float', 'g', 'ge', 'l', 'le', 'e', 'ne', 'phi']
+# for f in ftab:
+#     op_list.append(f.name)
 
-operation = Enum('operation', op_list)
+# operation = Enum('operation', op_list)
+
+
+def find_int_def(varname, symbol):
+    name = varname.split('_')[0]
+    for s in symbol:
+        if s.name == name:
+            if s.type == 'int':
+                return True
+            else:
+                return False
+    # not found
+    print("????? Not Found ?????")
+    return True
 
 
 class expr(object):
-    def __init__(self, line):
+    def __init__(self, line='null'):
+        if line == 'null':
+            return
         if line.startswith('#'):
             # PHI
             sp = line.split('=')
@@ -37,7 +54,17 @@ class expr(object):
         sp = line.strip(';').split(' = ')
         self.dst = sp[0]
         right_part = sp[1].split()
-        if right_part[0].startswith('('):                   # ) int or float
+        # print(len(right_part))
+        if len(right_part) == 1:                            # assign
+            self.op = 'assign'
+            self.src = []
+            if real_tele.search(right_part[0]):
+                # num = int(right_part[0])
+                num = ast.literal_eval(right_part[0])
+                self.src.append(vrange.VRange(num, num))
+            else:
+                self.src.append(right_part[0])
+        elif right_part[0].startswith('('):                 # ) int or float
             # self.op = operation[right_part[0].strip('()')]
             self.op = right_part[0].strip('()')
             self.src = []
@@ -51,21 +78,23 @@ class expr(object):
         else:                                               # operation
             self.op = right_part[1]
             self.src = []
-            if right_part[0].isnumeric():
-                num = int(right_part[0])
+            if real_tele.search(right_part[0]):
+                # num = int(right_part[0])
+                num = ast.literal_eval(right_part[0])
                 self.src.append(vrange.VRange(num, num))
             else:
                 self.src.append(right_part[0])
             
-            if right_part[2].isnumeric():
-                num = int(right_part[2])
+            if real_tele.search(right_part[2]):
+                # num = int(right_part[2])
+                num = ast.literal_eval(right_part[2])
                 self.src.append(vrange.VRange(num, num))
             else:
                 self.src.append(right_part[2])
 
     def __str__(self):
-        s = "dst: " + self.dst + '\n'
-        s += 'op: ' + self.op + '\n'
+        s = "dst: " + self.dst + '\t'
+        s += 'op: ' + self.op + '\t'
         s += "src: " + str(self.src) 
         return s
 
@@ -102,7 +131,7 @@ class block_parser(object):
                 else:
                     # unconditional
                     for _ in all_goto:
-                        self.cond.append("unconditional")
+                        self.cond.append(cond_parser("unconditional"))
 
     def __str__(self):
         s = 'block: ' + self.name + ', ' + 'goto: '
@@ -186,4 +215,124 @@ for func in ftab:
 
     func.blocks = blocks
     
+
+for h in range(len(ftab)):
+    func = ftab[h]
+    for b in func.blocks:
+        for i in range(len(b.cond)):
+            if b.cond[i].uncond:
+                continue
+            if b.cond[i].cmp == '!=':
+                continue
+
+            index = 0
+            for index in range(len(func.blocks)):
+                if func.blocks[index].lines[0].startswith(b.goto[i]):
+                    break
+            if index == len(func.blocks):
+                print("not found")
+                continue
+            # find the block
+            cons = expr()
+            cons.op = 'inter'
+            cons.src = []
+
+            if real_tele.search(b.cond[i].left):
+                num = ast.literal_eval(b.cond[i].left)
+                cons.dst = b.cond[i].right
+                cons.src.append(b.cond[i].right)
+
+                if b.cond[i].cmp == '<':
+                    if type(num) == type(1.0):
+                        cons.src.append(vrange.VRange(num, '+'))
+                    else:
+                        cons.src.append(vrange.VRange(num + 1, '+'))
+                elif b.cond[i].cmp == '>':
+                    if type(num) == type(1.0):
+                        cons.src.append(vrange.VRange('-', num))
+                    else:
+                        cons.src.append(vrange.VRange('-', num - 1))
+                elif b.cond[i].cmp == '==':
+                    cons.op = 'assign'
+                    cons.src.append(vrange.VRange(num, num))
+                elif b.cond[i].cmp == '<=':
+                    cons.src.append(vrange.VRange(num, '+'))
+                elif b.cond[i].cmp == '>=':
+                    cons.src.append(vrange.VRange('-', num))
+                # else b.cond[i].cmp == '!=': no kaolv
+
+                func.blocks[index].constraints.append(cons)
+
+            elif  real_tele.search(b.cond[i].right):
+                num = ast.literal_eval(b.cond[i].right)
+                cons.dst = b.cond[i].left
+                cons.src.append(b.cond[i].left)
+
+                if b.cond[i].cmp == '<':
+                    if type(num) == type(1.0):
+                        cons.src.append(vrange.VRange('-', num))
+                    else:
+                        cons.src.append(vrange.VRange('-', num - 1))
+                elif b.cond[i].cmp == '>':
+                    if type(num) == type(1.0):
+                        cons.src.append(vrange.VRange(num, '+'))
+                    else:
+                        cons.src.append(vrange.VRange(num + 1, '+'))
+                elif b.cond[i].cmp == '==':
+                    cons.op = 'assign'
+                    cons.src.append(vrange.VRange(num, num))
+                elif b.cond[i].cmp == '<=':
+                    cons.src.append(vrange.VRange('-', num))
+                elif b.cond[i].cmp == '>=':
+                    cons.src.append(vrange.VRange(num, '+'))
+                # else b.cond[i].cmp == '!=': bukaolv
+
+                func.blocks[index].constraints.append(cons)
+                
+            else:
+                # both sides are var, you need to use ft()
+                cons2 = expr()
+                cons2.op = 'inter'
+                cons2.src = []
+
+                cons.dst = b.cond[i].left
+                cons.src.append(b.cond[i].left)
+                cons2.dst = b.cond[i].right
+                cons2.src.append(b.cond[i].right)
+
+                if b.cond[i].cmp == '<':
+                    if find_int_def(b.cond[i].left, stab[h]):
+                        cons.src.append(vrange.VRange('-', (b.cond[i].right, -1)))
+                        cons2.src.append(vrange.VRange((b.cond[i].left, 1), '+'))
+                    else:
+                        cons.src.append(vrange.VRange('-', (b.cond[i].right, 0)))
+                        cons2.src.append(vrange.VRange((b.cond[i].left, 0), '+'))
+                elif b.cond[i].cmp == '>':
+                    if find_int_def(b.cond[i].left, stab[h]):
+                        cons.src.append(vrange.VRange((b.cond[i].right, 1), '+'))
+                        cons2.src.append(vrange.VRange('-', (b.cond[i].left, -1)))
+                    else:
+                        cons.src.append(vrange.VRange((b.cond[i].right, 0), '+'))
+                        cons2.src.append(vrange.VRange('-', (b.cond[i].left, 0)))
+                elif b.cond[i].cmp == '==':
+                    cons.src.append(vrange.VRange((b.cond[i].right, 0), (b.cond[i].right, 0)))
+                    cons2.src.append(vrange.VRange((b.cond[i].left, 0), (b.cond[i].left, 0)))
+                elif b.cond[i].cmp == '<=':
+                    cons.src.append(vrange.VRange('-', (b.cond[i].right, 0)))
+                    cons2.src.append(vrange.VRange((b.cond[i].left, 0), '+'))
+                elif b.cond[i].cmp == '>=':
+                    cons.src.append(vrange.VRange((b.cond[i].right, 0), '+'))
+                    cons2.src.append(vrange.VRange('-', (b.cond[i].left, 0)))
+                # else '!=', buguanle
+
+                func.blocks[index].constraints.append(cons)
+                func.blocks[index].constraints.append(cons2)
+
+
+for func in ftab:
+    for b in func.blocks:
+        for l in b.lines:
+            if ' = ' in l:
+                b.constraints.append(expr(l.strip(';')))
+
 

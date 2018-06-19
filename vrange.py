@@ -121,7 +121,7 @@ class VRange:
 
         if type(end) is tuple:
             self.endIsFuture = True
-            self.end = XNum(end)
+            self.end = Future(end[0], end[1])
         else:
             self.endIsFuture = False
             self.end = XNum(end)
