@@ -13,6 +13,9 @@ class XNum:
 
     __repr__ = __str__
 
+    def __eq__(self, other):
+        return self.num == other.num
+
     def __lt__(self, other):
         if self == other:
             return False
@@ -30,10 +33,10 @@ class XNum:
         return False
 
     def __gt__(self, other):
-        return not self < other
+        return not self <= other
 
     def __ge__(self, other):
-        return not self <= other
+        return not self < other
 
     def __add__(self, other):
         if not isinstance(self.num, str) and not isinstance(other.num, str):
@@ -201,3 +204,37 @@ class VRange:
         if not self.endIsFuture:
             newEnd = newEnd.toFloat()
         return VRange(newBegin, newEnd)
+
+    def compare(self, other, op):
+        sb = self.begin
+        se = self.end
+        ob = other.begin
+        oe = other.end
+
+        less = False
+        eq = False
+        greater = False
+
+        if sb > oe:
+            greater = True
+        elif ob > se:
+            less = True
+        else:
+            eq = True
+            if se > ob:
+                greater = True
+            if oe > sb:
+                less = True
+
+        if op == '<':
+            return list[set([less, not (eq or greater)])]
+        if op == '>':
+            return list[set([greater, not (less or eq)])]
+        if op == '<=':
+            return list[set([(less or eq), not greater])]
+        if op == '>=':
+            return list[set([(eq or greater), not less])]
+        if op == '==':
+            return list[set([eq, not (less or greater)])]
+        if op == '!=':
+            return list[set([(less or greater), not eq])]
