@@ -10,12 +10,39 @@ cond_tele = re.compile("\((.+)\)")
 num_tele = re.compile("^\d+$")
 real_tele = re.compile(r'^\-?[0-9\.]+$')
 
+in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
+
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t2.ssa'
+filename = 'benchmark/t3.ssa'
 
 ftab, stab = symtab.get_symtab(filename)
+itab = []
+
+for i in range(len(ftab)):
+    for j in range(len(ftab[i].args)):
+        stab[i].append(ftab[i].args[j])
+
+
+fin = open(filename, encoding='utf-8')
+lines = fin.readlines()
+fin.close()
+
+
+for func in ftab:
+    flines = lines[func.start: func.end + 1]
+    inname_list = in_tele.findall('\n'.join(flines))
+    temp_in_list = []
+    for arg in func.args:
+        for inname in inname_list:
+            if inname[0].split('_')[0] == arg.name:
+                temp_in_list.append(inname[0])
+                break
+    itab.append(temp_in_list)
+
+    # print(func.start, func.end)
+
 
 # op_list = ['plus', 'minus', 'mul', 'div', 'assign', 'int', 'float', 'g', 'ge', 'l', 'le', 'e', 'ne', 'phi']
 # for f in ftab:
@@ -33,7 +60,7 @@ def find_int_def(varname, symbol):
             else:
                 return False
     # not found
-    print("????? Not Found ?????")
+    print("????? Not Found ?????", varname, symbol)
     return True
 
 
@@ -49,6 +76,21 @@ class expr(object):
             self.op = 'phi'
             self.src = sp[1][6:-1].split(', ')
             return
+
+        if 'return' in line:
+            sp = line.split()
+            self.dst = None
+            self.op = 'return'
+            self.src = []
+            if len(sp) == 2:
+                src = sp[1]
+                if real_tele.search(src):
+                    num = ast.literal_eval(src)
+                    self.src.append(vrange.VRange(num, num))
+                else:
+                    self.src.append(src)
+            return
+
             
         # function / operation
         sp = line.strip(';').split(' = ')
@@ -72,9 +114,17 @@ class expr(object):
         elif right_part[1].startswith('('):                 # ) function
             # self.op = operation[right_part[0]]
             self.op = right_part[0]
-            index = sp[1].find('(')                         # ) index
+            index = sp[1].find('(')                         # ) find the index
             # print(sp[1], index)
-            self.src = sp[1][index + 1: -1].split(', ')
+            temp_src = sp[1][index + 1: -1].split(', ')
+            self.src = []
+            for src in temp_src:
+                if real_tele.search(src):
+                    num = ast.literal_eval(src)
+                    self.src.append(vrange.VRange(num, num))
+                else:
+                    self.src.append(src)
+
         else:                                               # operation
             self.op = right_part[1]
             self.src = []
@@ -176,9 +226,6 @@ class cond_parser(object):
     def reverse(self):
         return cond_parser("(" + self.left + " " + reverse_dict[self.cmp] + " " + self.right + ")")
 
-fin = open(filename, encoding='utf-8')
-lines = fin.readlines()
-fin.close()
 
 for func in ftab:
     flines = lines[func.start: func.end + 1]
@@ -336,7 +383,7 @@ for h in range(len(ftab)):
 for func in ftab:
     for b in func.blocks:
         for l in b.lines:
-            if ' = ' in l:
+            if ' = ' in l or 'return' in l:
                 b.constraints.append(expr(l.strip(';')))
 
 
@@ -352,6 +399,9 @@ for func in ftab:
             if flag:
                 func.blocks[index].pre.append(b.name)
 
+
+
+# ================= 分割线 ======================
 
 for func in ftab:
     dom = {}
