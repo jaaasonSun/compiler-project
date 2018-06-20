@@ -91,6 +91,16 @@ class XNum:
         else:
             return XNum(self.num / other.num)
 
+    def toInt(self):
+        if isinstance(self.num, str):
+            return XNum(self)
+        return XNum(int(self.num))
+
+    def toFloat(self):
+        if isinstance(self.num, str):
+            return XNum(self)
+        return XNum(float(self.num))
+
 
 class Future:
     def __init__(self, name, delta):
@@ -173,3 +183,21 @@ class VRange:
         else:
             return VRange(min(self.begin, other.begin),
                           max(self.end, other.end))
+
+    def toInt(self):
+        newBegin = self.begin
+        if not self.beginIsFuture:
+            newBegin = newBegin.toInt()
+        newEnd = self.end
+        if not self.endIsFuture:
+            newEnd = newEnd.toInt()
+        return VRange(newBegin, newEnd)
+
+    def toFloat(self):
+        newBegin = self.begin
+        if not self.beginIsFuture:
+            newBegin = newBegin.toFloat()
+        newEnd = self.end
+        if not self.endIsFuture:
+            newEnd = newEnd.toFloat()
+        return VRange(newBegin, newEnd)
