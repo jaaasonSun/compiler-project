@@ -15,7 +15,7 @@ in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t3.ssa'
+filename = 'benchmark/t1.ssa'
 
 ftab, stab = symtab.get_symtab(filename)
 itab = []
@@ -414,11 +414,11 @@ for func in ftab:
         change = False
         for b in func.blocks:
             if len(b.pre) == 0:
-                break
+                continue
             predDom = dom[b.pre[0]]
             for pred in b.pre:
-                predDom = predDom.intersect(dom[pred])
+                predDom = predDom & dom[pred]
             oldDom = dom[b.name].copy()
             dom[b.name] = set([b.name]).union(predDom)
-            if len(dom[b.name].difference(oldDom)) != 0:
+            if len(oldDom.difference(dom[b.name])) != 0:
                 change = True
