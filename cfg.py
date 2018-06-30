@@ -405,8 +405,10 @@ for func in ftab:
 
 for func in ftab:
     dom = {}
+    allName = [b.name for b in func.blocks]
     for b in func.blocks:
-        dom[b.name] = set([b.name])
+        dom[b.name] = set(allName)
+    dom[func.blocks[0].name] = set([func.blocks[0].name])
     change = True
     while change:
         change = False
@@ -417,6 +419,6 @@ for func in ftab:
             for pred in b.pre:
                 predDom = predDom.intersect(dom[pred])
             oldDom = dom[b.name].copy()
-            dom[b.name] = dom[b.name].union(predDom)
+            dom[b.name] = set([b.name]).union(predDom)
             if len(dom[b.name].difference(oldDom)) != 0:
                 change = True
