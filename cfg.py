@@ -28,7 +28,7 @@ for i in range(len(ftab)):
 fin = open(filename, encoding='utf-8')
 lines = fin.readlines()
 fin.close()
-
+        
 
 for func in ftab:
     flines = lines[func.start: func.end + 1]
@@ -143,7 +143,9 @@ class expr(object):
                 self.src.append(right_part[2])
 
     def __str__(self):
-        s = "dst: " + self.dst + '\t'
+        s = ''
+        if self.dst:
+            s += "dst: " + self.dst + '\t'
         s += 'op: ' + self.op + '\t'
         s += "src: " + str(self.src) 
         return s
@@ -262,7 +264,74 @@ for func in ftab:
             blocks[lb].cond.append(cond_parser("unconditional"))
 
     func.blocks = blocks
+
+# 处理完goto了
+
+for func in ftab:
+    func.new_blocks = []
+    temp_set = set(func.blocks[0].name)
+    func.new_blocks.append(func.blocks[0])
+    bfs = []
+    for b in func.blocks[0].goto:
+        bfs.append(b)
+    while len(func.new_blocks) != len(func.blocks):
+        for index in range(len(func.blocks)):
+            if func.blocks[index].name == bfs[0]:
+                break
+        if func.blocks[index].name in temp_set:
+            continue
+        func.new_blocks.append(func.blocks[index])
+        temp_set.add(func.blocks[index].name)
+        for goto_name in func.blocks[index].goto:
+            if goto_name not in temp_set:
+                bfs.append(goto_name)
+        bfs = bfs[1:]
     
+    func.blocks = func.new_blocks
+
+for func in ftab:
+    for b in func.blocks:
+        for g in b.goto:
+            flag = False
+            for index in range(len(func.blocks)):
+                if func.blocks[index].lines[0].startswith(g):
+                    flag = True
+                    break
+            # print(index, b.name)
+            if flag:
+                func.blocks[index].pre.append(b.name)
+
+# 求DOM集合
+for func in ftab:
+    dom = {}
+    allName = [b.name for b in func.blocks]
+    for b in func.blocks:
+        dom[b.name] = set(allName)
+    dom[func.blocks[0].name] = set([func.blocks[0].name])
+    change = True
+    while change:
+        change = False
+        for b in func.blocks:
+            if len(b.pre) == 0:
+                continue
+            predDom = dom[b.pre[0]]
+            for pred in b.pre:
+                predDom = predDom & dom[pred]
+            oldDom = dom[b.name].copy()
+            dom[b.name] = set([b.name]).union(predDom)
+            if len(oldDom.difference(dom[b.name])) != 0:
+                change = True
+    print(dom)
+    for b in func.blocks:
+        b.reverse_dom = []
+    for target in dom:
+        for source in dom[target]:
+            for index in range(len(func.blocks)):
+                if func.blocks[index].name == source:
+                    func.blocks[index].reverse_dom.append(target)
+                    break
+            
+
 
 for h in range(len(ftab)):
     func = ftab[h]
@@ -312,7 +381,28 @@ for h in range(len(ftab)):
                     cons.src.append(vrange.VRange('-', num))
                 # else b.cond[i].cmp == '!=': no kaolv
 
+                from_str = cons.dst
+                if i == 0:
+                    to_str = from_str + 't'
+                else:
+                    to_str = from_str + 'f'
+                
+                cons.dst = to_str
+
                 func.blocks[index].constraints.append(cons)
+                for shit in func.blocks[index].reverse_dom:
+                    for jindex in range(len(func.blocks)):
+                        if func.blocks[jindex].name == shit:
+                            break
+                    # hhh
+                    for fi in range(len(func.blocks[jindex].lines)):
+                        func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(from_str, to_str)
+                    for fi in range(len(func.blocks[jindex].cond)):
+                        if func.blocks[jindex].cond[fi].uncond:
+                            continue
+                        func.blocks[jindex].cond[fi] = cond_parser('(' + func.blocks[jindex].cond[fi].expr.replace(from_str, to_str) + ')')
+
+
 
             elif  real_tele.search(b.cond[i].right):
                 num = ast.literal_eval(b.cond[i].right)
@@ -338,7 +428,28 @@ for h in range(len(ftab)):
                     cons.src.append(vrange.VRange(num, '+'))
                 # else b.cond[i].cmp == '!=': bukaolv
 
+                from_str = cons.dst
+                if i == 0:
+                    to_str = from_str + 't'
+                else:
+                    to_str = from_str + 'f'
+
+                cons.dst = to_str
+
                 func.blocks[index].constraints.append(cons)
+                for shit in func.blocks[index].reverse_dom:
+                    for jindex in range(len(func.blocks)):
+                        if func.blocks[jindex].name == shit:
+                            break
+                    # hhh
+                    for fi in range(len(func.blocks[jindex].lines)):
+                        func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(
+                            from_str, to_str)
+                    for fi in range(len(func.blocks[jindex].cond)):
+                        if func.blocks[jindex].cond[fi].uncond:
+                            continue
+                        # print(func.blocks[jindex].cond[fi].expr.replace(from_str, to_str))
+                        func.blocks[jindex].cond[fi] = cond_parser('(' + func.blocks[jindex].cond[fi].expr.replace(from_str, to_str) + ')')
                 
             else:
                 # both sides are var, you need to use ft()
@@ -376,8 +487,37 @@ for h in range(len(ftab)):
                     cons2.src.append(vrange.VRange('-', (b.cond[i].left, 0)))
                 # else '!=', buguanle
 
+                from_str = cons.dst
+                from_str2 = cons2.dst
+                if i == 0:
+                    to_str = from_str + 't'
+                    to_str2 = from_str2 + 't'
+                else:
+                    to_str = from_str + 'f'
+                    to_str2 = from_str2 + 'f'
+
+                cons.dst = to_str
+                cons2.dst = to_str2
+
                 func.blocks[index].constraints.append(cons)
                 func.blocks[index].constraints.append(cons2)
+
+                for shit in func.blocks[index].reverse_dom:
+                    for jindex in range(len(func.blocks)):
+                        if func.blocks[jindex].name == shit:
+                            break
+                    # hhh
+                    for fi in range(len(func.blocks[jindex].lines)):
+                        func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(
+                            from_str, to_str)
+                        func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(
+                            from_str2, to_str2)
+                    for fi in range(len(func.blocks[jindex].cond)):
+                        if func.blocks[jindex].cond[fi].uncond:
+                            continue
+                        func.blocks[jindex].cond[fi] = cond_parser('(' + func.blocks[jindex].cond[fi].expr.replace(from_str, to_str) + ')')
+                        func.blocks[jindex].cond[fi] = cond_parser('(' + func.blocks[jindex].cond[fi].expr.replace(from_str2, to_str2) + ')')
+
 
 
 for func in ftab:
@@ -386,39 +526,3 @@ for func in ftab:
             if ' = ' in l or 'return' in l:
                 b.constraints.append(expr(l.strip(';')))
 
-
-for func in ftab:
-    for b in func.blocks:
-        for g in b.goto:
-            flag = False
-            for index in range(len(func.blocks)):
-                if func.blocks[index].lines[0].startswith(g):
-                    flag = True
-                    break
-            # print(index, b.name)
-            if flag:
-                func.blocks[index].pre.append(b.name)
-
-
-
-# ================= 分割线 ======================
-
-for func in ftab:
-    dom = {}
-    allName = [b.name for b in func.blocks]
-    for b in func.blocks:
-        dom[b.name] = set(allName)
-    dom[func.blocks[0].name] = set([func.blocks[0].name])
-    change = True
-    while change:
-        change = False
-        for b in func.blocks:
-            if len(b.pre) == 0:
-                continue
-            predDom = dom[b.pre[0]]
-            for pred in b.pre:
-                predDom = predDom & dom[pred]
-            oldDom = dom[b.name].copy()
-            dom[b.name] = set([b.name]).union(predDom)
-            if len(oldDom.difference(dom[b.name])) != 0:
-                change = True
