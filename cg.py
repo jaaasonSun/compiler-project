@@ -1,5 +1,7 @@
 from vrange import XNum, VRange, Future
 
+entryFuncName = 'foo'
+
 
 class CGNode:
     def __init__(self, isSym, name):
@@ -81,7 +83,8 @@ class CGNode:
                 retRange = retRange.union(src.vrange)
             return retRange
         # function calls
-        # WARNING: this is NOT final
+        # should functions be properly handled,
+        # this case would never be triggered
         return VRange('-', '+')
 
 
@@ -129,7 +132,7 @@ class CGSub:
             if node.vrange is not None:
                 r = node.vrange
                 controller = None
-                # even if both ends arre futures,
+                # even if both ends are futures,
                 # they are bounded by the same variable
                 if isinstance(r.begin, Future):
                     controller = self.getNode(r.begin.name)
@@ -303,8 +306,24 @@ class CG:
         self.funcList[name] = sub
         self.allNodeList.extend(sub.nodeList)
 
-    # work in progress
     def connectFunc(self):
         for f in self.funcList:
             for fNode in f.funcCall:
-                pass
+                for g in self.funcList:
+                    if g.name == fNode.op:
+                        break
+                for arg, name in zip(fNode.srcList, g.entry):
+                    entryNode = g.getNode(name)
+                    arg.usedList = [entryNode]
+                    entryNode.srcList = [arg]
+                    fNode.usedList[0].srcList = [g.masterReturn]
+                    f.nodeList.remove(fNode)
+                    self.allNodeList.remove(fNode)
+
+    def buildEntryExit(self):
+        for f in self.funcList:
+            if f.name == entryFuncName:
+                self.entryNodes = [f.getNode(name) for name in f.entry]
+                self.exitNode = f.masterReturn
+                break
+

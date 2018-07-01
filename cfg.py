@@ -1,5 +1,4 @@
 import re
-from enum import Enum
 import ast
 import symtab
 import vrange
@@ -39,8 +38,9 @@ for func in ftab:
             if inname[0].split('_')[0] == arg.name:
                 temp_in_list.append(inname[0])
                 break
-    itab.append(temp_in_list)
-
+    # 求求你把它放到一起
+    # itab.append(temp_in_list)
+    func.entry = temp_in_list
     # print(func.start, func.end)
 
 
