@@ -120,19 +120,9 @@ class CGSub:
 
         stripParen = re.compile('(\(.+?\))')
 
+        print(exprList)
+
         for ex in exprList:
-            opNode = CGNode(False, ex.op)
-            self.addNode(opNode)
-            if ex.op not in self.op_list:
-                self.funcCall.append(opNode)
-            elif ex.op == 'return':
-                returnList.extend(ex.src)
-
-            print(ex.dst)
-            for i in range(len(ex.src)):
-                if isinstance(ex.src[i], str):
-                    print(ex.src[i])
-
             for i in range(len(ex.src)):
                 if isinstance(ex.src[i], str):
                     ex.src[i] = stripParen.sub('', ex.src[i])
@@ -140,10 +130,15 @@ class CGSub:
             if isinstance(ex.dst, str):
                 ex.dst = stripParen.sub('', ex.dst)
 
-            print(ex.dst)
-            for i in range(len(ex.src)):
-                if isinstance(ex.src[i], str):
-                    print(ex.src[i])
+        print(exprList)
+
+        for ex in exprList:
+            opNode = CGNode(False, ex.op)
+            self.addNode(opNode)
+            if ex.op not in self.op_list:
+                self.funcCall.append(opNode)
+            elif ex.op == 'return':
+                returnList.extend(ex.src)
 
             for src in ex.src:
                 if isinstance(src, str):
