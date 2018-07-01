@@ -112,7 +112,12 @@ class expr(object):
             self.src.append(right_part[1])
         elif right_part[1].startswith('('):                 # ) function
             # self.op = operation[right_part[0]]
-            self.op = right_part[0]
+            for findex in range(len(ftab)):
+                if ftab[findex].name == right_part[0]:
+                    break
+            self.op = right_part[0] + '_' + str(ftab[findex].called_times)
+            print("sdfffffdddddddddddddddddddddddddddddddddddddddd")
+            ftab[findex].called_times += 1
             index = sp[1].find('(')                         # ) find the index
             # print(sp[1], index)
             temp_src = sp[1][index + 1: -1].split(', ')
@@ -329,7 +334,10 @@ for func in ftab:
                 if func.blocks[index].name == source:
                     func.blocks[index].reverse_dom.append(target)
                     break
-            
+
+
+for i in range(len(ftab)):
+    ftab[i].called_times = 0
 
 
 for h in range(len(ftab)):
