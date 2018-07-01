@@ -3,6 +3,7 @@ import ast
 import symtab
 import vrange
 from cg import CG, CGCompressed
+from graphviz import Digraph
 
 tele = re.compile("(<.+?>)")
 cond_tele = re.compile("\((.+)\)")
@@ -526,10 +527,26 @@ for func in ftab:
 
 graph = CG()
 for func, args in zip(ftab, itab):
-    graph.addFunc(func.name, func.constraints, args)
+    constraints = []
+    for b in func.blocks:
+        constraints.extend(b.constraints)
+    for c in constraints:
+        print(c)
+    graph.addFunc(func.name, constraints, args)
 
 graph.connectFunc()
-graph.buildEntryExit(inputRanges)
-compressed = CGCompressed(graph)
-compressed.resolveSCC()
-print(compressed.cg.exitNode.vrange)
+dot = Digraph('test')
+for n in graph.allNodeList:
+    dot.node(str(id(n)), n.__str__())
+
+for n in graph.allNodeList:
+    for used in n.usedList:
+        dot.edge(str(id(n)), str(id(used)))
+
+dot.render('~/Desktop/test.gv', view=True)
+
+
+# graph.buildEntryExit(inputRanges)
+# compressed = CGCompressed(graph)
+# compressed.resolveSCC()
+# Print(compressed.cg.exitNode.vrange)

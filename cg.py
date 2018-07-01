@@ -6,6 +6,7 @@ entryFuncName = 'foo'
 class CGNode:
     def __init__(self, isSym, name):
         self.isSym = isSym
+        self.op = None
         if isSym:
             self.name = name
         elif name is not None:
@@ -16,6 +17,21 @@ class CGNode:
         self.control = None
         self.controlled = None
         self.superNode = self
+
+    def __str__(self):
+        if self.isSym:
+            if self.name is None:
+                return 'name is None'
+            else:
+                return self.name
+        elif self.op is not None:
+            return self.op
+        elif self.vrange is not None:
+            return self.vrange.__str__()
+        else:
+            return 'None'
+
+    __repr__ = __str__
 
     def addSrc(self, node):
         self.srcList.append(node)
@@ -28,7 +44,7 @@ class CGNode:
             return self.vrange
         if self.op is None:
             return self.vrange
-        if self.op == 'phi':
+        if self.op == 'PHI':
             # no range is only handled in the case
             # in all other cases, if a src has no range
             # current node also have no range
@@ -107,9 +123,9 @@ class CGSub:
             if ex.op not in self.op_list:
                 self.funcCall.append(opNode)
             elif ex.op == 'return':
-                returnList.extend(ex.srcList)
+                returnList.extend(ex.src)
 
-            for src in ex.srcList:
+            for src in ex.src:
                 if isinstance(src, str):
                     srcNode = self.getNode(src)
                     if srcNode is None:
@@ -151,7 +167,7 @@ class CGSub:
         masterReturn = CGNode(False, 'return_m')
         self.masterReturn = masterReturn
         self.addNode(masterReturn)
-        for retVal in self.returnList:
+        for retVal in returnList:
             if isinstance(retVal, str):
                 retNode = self.getNode(retVal)
             else:
@@ -164,10 +180,10 @@ class CGSub:
     def addNode(self, newNode, name=None):
         self.nodeList.append(newNode)
         if name is not None:
-            self.nodeDic[name] = newNode
+            self.namedNode[name] = newNode
 
     def getNode(self, name):
-        return self.nodeDic.get(name)
+        return self.namedNode.get(name)
 
 
 class CGSuperNode:
@@ -302,10 +318,11 @@ class CG:
     def __init__(self):
         self.funcList = []
         self.nodeList = []  # named after CGSub so CGCompressed works for both
+        self.allNodeList = []
 
     def addFunc(self, name, exprList, args):
         sub = CGSub(name, exprList, args)
-        self.funcList.append = sub
+        self.funcList.append(sub)
         self.allNodeList.extend(sub.nodeList)
 
     def connectFunc(self):
