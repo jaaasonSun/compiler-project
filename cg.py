@@ -176,14 +176,14 @@ class CGSub:
         for node in self.nodeList:
             if node.vrange is not None:
                 r = node.vrange
-                controller = None
                 # even if both ends are futures,
                 # they are bounded by the same variable
                 if isinstance(r.begin, Future):
                     controller = self.getNode(r.begin.name)
+                    node.controlled = controller
+                    controller.control = node
                 elif isinstance(r.end, Future):
                     controller = self.getNode(r.end.name)
-                if controller is not None:
                     node.controlled = controller
                     controller.control = node
 
