@@ -130,9 +130,9 @@ class CGSub:
 
             for src in ex.src:
                 if isinstance(src, str):
-                    ex.src = stripParen.sub('', 'ex.src')
+                    ex.src = stripParen.sub('', ex.src)
             if isinstance(ex.dst, str):
-                ex.src = stripParen.sub('', 'ex.src')
+                ex.dst = stripParen.sub('', ex.dst)
 
             for src in ex.src:
                 if isinstance(src, str):
