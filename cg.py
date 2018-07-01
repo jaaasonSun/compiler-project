@@ -92,7 +92,8 @@ class CGSub:
     op_list = ['+', '-', '*', '/', 'assign', 'int', 'float', 'phi', 'inter',
                '<', '>', '<=', '>=', '==', '!=', 'return', 'return_m']
 
-    def __init__(self, exprList, args):
+    def __init__(self, name, exprList, args):
+        self.name = name
         self.namedNode = {}
         self.nodeList = []
         self.entry = []
@@ -235,9 +236,10 @@ class CGSuperNode:
 
 
 class CGCompressed:
-    def __init__(self, CG):
+    def __init__(self, cg):
         visited = []
         finished = []
+        self.cg = cg
         self.superNodes = set()
         self.topologicalOrdering = []
 
@@ -298,12 +300,12 @@ class CGCompressed:
 
 class CG:
     def __init__(self):
-        self.funcList = {}
+        self.funcList = []
         self.nodeList = []  # named after CGSub so CGCompressed works for both
 
-    def addFunc(self, exprList, name, args):
-        sub = CGSub(exprList)
-        self.funcList[name] = sub
+    def addFunc(self, name, exprList, args):
+        sub = CGSub(name, exprList, args)
+        self.funcList.append = sub
         self.allNodeList.extend(sub.nodeList)
 
     def connectFunc(self):
@@ -312,18 +314,31 @@ class CG:
                 for g in self.funcList:
                     if g.name == fNode.op:
                         break
-                for arg, name in zip(fNode.srcList, g.entry):
-                    entryNode = g.getNode(name)
-                    arg.usedList = [entryNode]
-                    entryNode.srcList = [arg]
+                for argCall, argCalled in zip(fNode.srcList, g.entry):
+                    if argCall.isSym:
+                        assignNode = CGNode(False, 'assign')
+                        f.nodeList.append(assignNode)
+                        self.allNodeList.append(assignNode)
+
+                        argCall.usedList.remove(fNode)
+                        argCall.addUsed(assignNode)
+                        assignNode.addSrc(argCall)
+                        assignNode.addUsed(argCalled)
+                        argCalled.addSrc(assignNode)
+                    else:
+                        argCall.usedList.remove(fNode)
+                        argCall.addUsed(argCalled)
+                        argCalled.addSrc(argCall)
+
                     fNode.usedList[0].srcList = [g.masterReturn]
                     f.nodeList.remove(fNode)
                     self.allNodeList.remove(fNode)
 
-    def buildEntryExit(self):
+    def buildEntryExit(self, inputRanges):
         for f in self.funcList:
             if f.name == entryFuncName:
                 self.entryNodes = [f.getNode(name) for name in f.entry]
+                for node, vrange in zip(self.entryNodes, inputRanges):
+                    node.vrange = vrange
                 self.exitNode = f.masterReturn
                 break
-

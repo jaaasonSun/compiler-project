@@ -2,7 +2,7 @@ import re
 import ast
 import symtab
 import vrange
-
+from cg import CG, CGCompressed
 
 tele = re.compile("(<.+?>)")
 cond_tele = re.compile("\((.+)\)")
@@ -38,9 +38,7 @@ for func in ftab:
             if inname[0].split('_')[0] == arg.name:
                 temp_in_list.append(inname[0])
                 break
-    # 求求你把它放到一起
-    # itab.append(temp_in_list)
-    func.entry = temp_in_list
+    itab.append(temp_in_list)
     # print(func.start, func.end)
 
 
@@ -526,3 +524,12 @@ for func in ftab:
             if ' = ' in l or 'return' in l:
                 b.constraints.append(expr(l.strip(';')))
 
+graph = CG()
+for func, args in zip(ftab, itab):
+    graph.addFunc(func.name, func.constraints, args)
+
+graph.connectFunc()
+graph.buildEntryExit(inputRanges)
+compressed = CGCompressed(graph)
+compressed.resolveSCC()
+print(compressed.cg.exitNode.vrange)
