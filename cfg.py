@@ -15,7 +15,7 @@ in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t1.ssa'
+filename = 'benchmark/t7.ssa'
 
 ftab, stab = symtab.get_symtab(filename)
 itab = []

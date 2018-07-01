@@ -15,7 +15,7 @@ class CGNode:
         self.vrange = None
         self.srcList = []
         self.usedList = []
-        self.control = None
+        self.control = []
         self.controlled = None
         self.superNode = self
 
@@ -118,7 +118,7 @@ class CGSub:
         self.masterReturn = None
         returnList = []
 
-        stripParen = re.compile('(\(.+?\))')
+        stripParen = re.compile('(\(\d+?\))')
 
         print(exprList)
 
@@ -181,11 +181,11 @@ class CGSub:
                 if isinstance(r.begin, Future):
                     controller = self.getNode(r.begin.name)
                     node.controlled = controller
-                    controller.control = node
+                    controller.control.append(node)
                 elif isinstance(r.end, Future):
                     controller = self.getNode(r.end.name)
                     node.controlled = controller
-                    controller.control = node
+                    controller.control.append(node)
 
         for arg in args:
             self.entry.append(self.namedNode[arg])
