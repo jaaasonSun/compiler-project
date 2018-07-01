@@ -116,7 +116,6 @@ class expr(object):
                 if ftab[findex].name == right_part[0]:
                     break
             self.op = right_part[0] + '_' + str(ftab[findex].called_times)
-            print("sdfffffdddddddddddddddddddddddddddddddddddddddd")
             ftab[findex].called_times += 1
             index = sp[1].find('(')                         # ) find the index
             # print(sp[1], index)
