@@ -1,4 +1,5 @@
 from vrange import XNum, VRange, Future
+import re
 
 entryFuncName = 'foo'
 
@@ -117,6 +118,8 @@ class CGSub:
         self.masterReturn = None
         returnList = []
 
+        stripParen = re.compile('(\(.+?\))')
+
         for ex in exprList:
             opNode = CGNode(False, ex.op)
             self.addNode(opNode)
@@ -124,6 +127,12 @@ class CGSub:
                 self.funcCall.append(opNode)
             elif ex.op == 'return':
                 returnList.extend(ex.src)
+
+            for src in ex.src:
+                if isinstance(src, str):
+                    ex.src = stripParen.sub('', 'ex.src')
+            if isinstance(ex.dst, str):
+                ex.src = stripParen.sub('', 'ex.src')
 
             for src in ex.src:
                 if isinstance(src, str):

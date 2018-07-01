@@ -543,7 +543,7 @@ for n in graph.allNodeList:
     for used in n.usedList:
         dot.edge(str(id(n)), str(id(used)))
 
-dot.render('~/Desktop/test.gv', view=True)
+dot.render('./test.gv')
 
 
 # graph.buildEntryExit(inputRanges)
