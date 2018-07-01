@@ -542,6 +542,8 @@ for n in graph.allNodeList:
 for n in graph.allNodeList:
     for used in n.usedList:
         dot.edge(str(id(n)), str(id(used)))
+    if n.control is not None:
+        dot.edge(str(id(n)), str(id(n.control)))
 
 dot.render('./test.gv')
 

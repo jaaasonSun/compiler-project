@@ -133,12 +133,25 @@ class CGSub:
         print(exprList)
 
         for ex in exprList:
+            if ex.op == 'return':
+                # do not create a node for return (just yet)
+                returnList.extend(ex.src)
+
+                for src in ex.src:
+                    if isinstance(src, str):
+                        srcNode = self.getNode(src)
+                        if srcNode is None:
+                            srcNode = CGNode(True, src)
+                            self.addNode(srcNode, src)
+                    else:
+                        srcNode = CGNode(False, None)
+                        self.addNode(srcNode)
+                        srcNode.vrange = src
+
             opNode = CGNode(False, ex.op)
             self.addNode(opNode)
             if ex.op not in self.op_list:
                 self.funcCall.append(opNode)
-            elif ex.op == 'return':
-                returnList.extend(ex.src)
 
             for src in ex.src:
                 if isinstance(src, str):
