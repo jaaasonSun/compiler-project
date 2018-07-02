@@ -385,6 +385,7 @@ for h in range(len(ftab)):
                         cons.src.append(vrange.VRange('-', num - 1))
                 elif b.cond[i].cmp == '==':
                     cons.op = 'assign'
+                    cons.src = []
                     cons.src.append(vrange.VRange(num, num))
                 elif b.cond[i].cmp == '<=':
                     cons.src.append(vrange.VRange(num, '+'))
@@ -432,6 +433,7 @@ for h in range(len(ftab)):
                         cons.src.append(vrange.VRange(num + 1, '+'))
                 elif b.cond[i].cmp == '==':
                     cons.op = 'assign'
+                    cons.src = []
                     cons.src.append(vrange.VRange(num, num))
                 elif b.cond[i].cmp == '<=':
                     cons.src.append(vrange.VRange('-', num))
