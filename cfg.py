@@ -15,7 +15,7 @@ in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t7.ssa'
+filename = 'benchmark/t9.ssa'
 
 ftab, stab = symtab.get_symtab(filename)
 itab = []
@@ -272,7 +272,8 @@ for func in ftab:
 
 for func in ftab:
     func.new_blocks = []
-    temp_set = set(func.blocks[0].name)
+    temp_set = set()
+    temp_set.add(func.blocks[0].name)
     func.new_blocks.append(func.blocks[0])
     bfs = []
     for b in func.blocks[0].goto:
@@ -282,6 +283,7 @@ for func in ftab:
             if func.blocks[index].name == bfs[0]:
                 break
         if func.blocks[index].name in temp_set:
+            bfs = bfs[1:]
             continue
         func.new_blocks.append(func.blocks[index])
         temp_set.add(func.blocks[index].name)
