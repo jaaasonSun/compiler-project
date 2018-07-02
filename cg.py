@@ -127,8 +127,10 @@ class CGSub:
                 if isinstance(ex.src[i], str):
                     ex.src[i] = stripParen.sub('', ex.src[i])
 
-            if isinstance(ex.dst, str):
-                ex.dst = stripParen.sub('', ex.dst)
+        if isinstance(ex.dst, str):
+            ex.dst = stripParen.sub('', ex.dst)
+
+        args = [stripParen.sub('', arg) for arg in args]
 
         print(exprList)
 
@@ -147,6 +149,7 @@ class CGSub:
                         srcNode = CGNode(False, None)
                         self.addNode(srcNode)
                         srcNode.vrange = src
+                continue
 
             opNode = CGNode(False, ex.op)
             self.addNode(opNode)
@@ -217,8 +220,8 @@ class CGSub:
 class CGSuperNode:
     def __init__(self, nodeList):
         self.nodeSet = set(nodeList)
-        self.srcSet = []
-        self.usedSet = []
+        self.srcSet = set()
+        self.usedSet = set()
 
     def widen(self):
         change = True
@@ -284,27 +287,37 @@ class CGCompressed:
         visited = []
         finished = []
         self.cg = cg
-        self.superNodes = set()
+        self.superNodes = []
         self.topologicalOrdering = []
 
-        for node in CG.nodeList:
+        for node in cg.nodeList:
             if node not in visited:
                 self.forwardDFS(visited, finished, node)
+
+        for node in finished:
+            print(node)
 
         # compress SCC
         visited.clear()
         for node in reversed(finished):
             if node not in visited:
-                self.superNodes.add(self.backwardDFS(visited, node))
+                nodeSet = self.backwardDFS(visited, node)
+                self.superNodes.append(CGSuperNode(nodeSet))
+                print(nodeSet)
 
         for sn in self.superNodes:
             for node in sn.nodeSet:
                 node.superNode = sn
 
-        for node in CG.nodeList:
+        for node in cg.nodeList:
             for src in node.srcList:
-                node.superNode.srcSet.add(src)
-                src.superNode.usedSet.add(node)
+                if node.superNode != src.superNode:
+                    node.superNode.srcSet.add(src.superNode)
+                    src.superNode.usedSet.add(node.superNode)
+            for c in node.control:
+                if node.superNode != c.superNode:
+                    node.superNode.usedSet.add(c.superNode)
+                    c.superNode.srcSet.add(node.superNode)
 
         # order SCC
         visited.clear()
@@ -313,18 +326,28 @@ class CGCompressed:
                 self.topologicalSort(visited, self.topologicalOrdering, sn)
 
     def forwardDFS(self, visited, finished, node):
+        print('visit '+str(node))
         visited.append(node)
         for succ in node.usedList:
             if succ not in visited:
                 self.forwardDFS(visited, finished, succ)
+        for succ in node.control:
+            if succ not in visited:
+                self.forwardDFS(visited, finished, succ)
         finished.append(node)
+        print('finifsh '+(str(node)))
 
     def backwardDFS(self, visited, node):
+        print('visit '+str(node))
         superNode = set([node])
         visited.append(node)
         for pred in node.srcList:
             if pred not in visited:
-                superNode.union(self.backwardDFS(visited, node))
+                superNode = superNode.union(self.backwardDFS(visited, pred))
+        if node.controlled is not None and node.controlled not in visited:
+            superNode = superNode.union(
+                self.backwardDFS(visited, node.controlled))
+        print('finifsh '+(str(node)))
         return superNode
 
     def topologicalSort(self, visited, ordered, superNode):
@@ -346,12 +369,11 @@ class CG:
     def __init__(self):
         self.funcList = []
         self.nodeList = []  # named after CGSub so CGCompressed works for both
-        self.allNodeList = []
 
     def addFunc(self, name, exprList, args):
         sub = CGSub(name, exprList, args)
         self.funcList.append(sub)
-        self.allNodeList.extend(sub.nodeList)
+        self.nodeList.extend(sub.nodeList)
 
     def connectFunc(self):
         for f in self.funcList:
@@ -363,7 +385,7 @@ class CG:
                     if argCall.isSym:
                         assignNode = CGNode(False, 'assign')
                         f.nodeList.append(assignNode)
-                        self.allNodeList.append(assignNode)
+                        self.nodeList.append(assignNode)
 
                         argCall.usedList.remove(fNode)
                         argCall.addUsed(assignNode)
@@ -375,15 +397,16 @@ class CG:
                         argCall.addUsed(argCalled)
                         argCalled.addSrc(argCall)
 
-                    fNode.usedList[0].srcList = [g.masterReturn]
+                    nextNode = fNode.usedList[0]
+                    nextNode.srcList = [g.masterReturn]
+                    g.masterReturn.usedList.append(nextNode)
                     f.nodeList.remove(fNode)
-                    self.allNodeList.remove(fNode)
+                    self.nodeList.remove(fNode)
 
     def buildEntryExit(self, inputRanges):
         for f in self.funcList:
             if f.name == entryFuncName:
-                self.entryNodes = [f.getNode(name) for name in f.entry]
-                for node, vrange in zip(self.entryNodes, inputRanges):
+                for node, vrange in zip(f.entry, inputRanges):
                     node.vrange = vrange
                 self.exitNode = f.masterReturn
                 break
