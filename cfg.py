@@ -1,4 +1,5 @@
 import re
+import sys
 import ast
 import symtab
 import vrange
@@ -14,9 +15,14 @@ in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
+filename = sys.argv[1]
+argCount = int(sys.argv[2])
+inputRanges = []
+for i in range(argCount):
+    begin = sys.argv[3+2*i]
+    end = sys.argv[4+2*i]
+    inputRanges.append(vrange.VRange(begin, end))
 
-filename = 'benchmark/t10.ssa'
-inputRanges = [vrange.VRange(30, 50), vrange.VRange(90, 100)]
 outputRange = vrange.VRange('-', '+')
 
 ftab, stab = symtab.get_symtab(filename)
@@ -61,7 +67,7 @@ def find_int_def(varname, symbol):
             else:
                 return False
     # not found
-    print("????? Not Found ?????", varname, symbol)
+    # print("????? Not Found ?????", varname, symbol)
     return True
 
 
@@ -329,7 +335,7 @@ for func in ftab:
             dom[b.name] = set([b.name]).union(predDom)
             if len(oldDom.difference(dom[b.name])) != 0:
                 change = True
-    print(dom)
+    # print(dom)
     for b in func.blocks:
         b.reverse_dom = []
     for target in dom:
@@ -363,7 +369,7 @@ for h in range(len(ftab)):
                     break
             # if index == len(func.blocks):
             if not flag:
-                print("not found")
+                # print("not found")
                 continue
             # find the block
             cons = expr()
@@ -556,16 +562,16 @@ for func, args in zip(ftab, itab):
         constraints = []
         for b in func.blocks:
             constraints.extend(b.constraints)
-        for c in constraints:
-            print(c)
+        # for c in constraints:
+        #     print(c)
         graph.addFunc(func.name, constraints, args)
     else:
         for i in range(func.called_times):
             constraints = []
             for b in func.blocks:
                 constraints.extend(b.constraints)
-            for c in constraints:
-                print(c)
+            # for c in constraints:
+            #     print(c)
             graph.addFunc(func.name+'_{}'.format(i), constraints, args)
 
 graph.connectFunc()
@@ -583,57 +589,57 @@ dot.render('./CG.gv')
 graph.buildEntryExit(inputRanges)
 compressed = CGCompressed(graph)
 
-dot2 = Digraph('CGCompressed')
-for sn in compressed.superNodes:
-    label = ''
-    for n in sn.nodeSet:
-        label = label + ' | ' + n.__str__()
-    dot2.node(str(id(sn)), label)
+# dot2 = Digraph('CGCompressed')
+# for sn in compressed.superNodes:
+#     label = ''
+#     for n in sn.nodeSet:
+#         label = label + ' | ' + n.__str__()
+#     dot2.node(str(id(sn)), label)
 
-for sn in compressed.superNodes:
-    for used in sn.usedSet:
-        dot2.edge(str(id(sn)), str(id(used)))
-dot2.render('CGC.gv')
+# for sn in compressed.superNodes:
+#     for used in sn.usedSet:
+#         dot2.edge(str(id(sn)), str(id(used)))
+# dot2.render('CGC.gv')
 
-i = 0
+# i = 0
 
-for sn in compressed.topologicalOrdering:
-    sn.replaceFuture()  # replace future resolved by previous superNode
-    sn.widen()
-    # dot3 = Digraph('CGV')
-    # for n in graph.nodeList:
-    #     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
-    # for n in graph.nodeList:
-    #     for used in n.usedList:
-    #         dot3.edge(str(id(n)), str(id(used)))
-    #     for c in n.control:
-    #         dot3.edge(str(id(n)), str(id(c)))
-    # dot3.render('./CGV{}W.gv'.format(i))
-    # i = i+1
-    sn.replaceFuture()  # replace future resolved just now
-    sn.narrow()
-    # dot3 = Digraph('CGV')
-    # for n in graph.nodeList:
-    #     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
-    # for n in graph.nodeList:
-    #     for used in n.usedList:
-    #         dot3.edge(str(id(n)), str(id(used)))
-    #     for c in n.control:
-    #         dot3.edge(str(id(n)), str(id(c)))
-    # dot3.render('./CGV{}N.gv'.format(i))
-    # i = i+1
+# for sn in compressed.topologicalOrdering:
+#     sn.replaceFuture()  # replace future resolved by previous superNode
+#     sn.widen()
+#     # dot3 = Digraph('CGV')
+#     # for n in graph.nodeList:
+#     #     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
+#     # for n in graph.nodeList:
+#     #     for used in n.usedList:
+#     #         dot3.edge(str(id(n)), str(id(used)))
+#     #     for c in n.control:
+#     #         dot3.edge(str(id(n)), str(id(c)))
+#     # dot3.render('./CGV{}W.gv'.format(i))
+#     # i = i+1
+#     sn.replaceFuture()  # replace future resolved just now
+#     sn.narrow()
+#     # dot3 = Digraph('CGV')
+#     # for n in graph.nodeList:
+#     #     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
+#     # for n in graph.nodeList:
+#     #     for used in n.usedList:
+#     #         dot3.edge(str(id(n)), str(id(used)))
+#     #     for c in n.control:
+#     #         dot3.edge(str(id(n)), str(id(c)))
+#     # dot3.render('./CGV{}N.gv'.format(i))
+#     # i = i+1
 
-dot3 = Digraph('CGV')
-for n in graph.nodeList:
-    dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
+# dot3 = Digraph('CGV')
+# for n in graph.nodeList:
+#     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
 
-for n in graph.nodeList:
-    for used in n.usedList:
-        dot3.edge(str(id(n)), str(id(used)))
-    for c in n.control:
-        dot3.edge(str(id(n)), str(id(c)))
-dot3.render('./CGV.gv')
+# for n in graph.nodeList:
+#     for used in n.usedList:
+#         dot3.edge(str(id(n)), str(id(used)))
+#     for c in n.control:
+#         dot3.edge(str(id(n)), str(id(c)))
+# dot3.render('./CGV.gv')
 
-# compressed.resolveSCC()
+compressed.resolveSCC()
 outputRange = compressed.cg.exitNode.eRange()
 print(outputRange)

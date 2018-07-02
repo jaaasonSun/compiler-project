@@ -7,7 +7,8 @@ class XNum:
             return
         elif isinstance(num, str):
             if num != '+' and num != '-':
-                raise ValueError('string not infinity')
+                self.num = int(num)
+                return
         self.num = num
 
     def __str__(self):
