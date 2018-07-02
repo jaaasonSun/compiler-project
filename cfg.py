@@ -8,15 +8,15 @@ from graphviz import Digraph
 tele = re.compile("(<.+?>)")
 cond_tele = re.compile("\((.+)\)")
 num_tele = re.compile("^\d+$")
-real_tele = re.compile(r'^\-?[0-9\.]+$')
+real_tele = re.compile(r'^\-?[0-9\.e\-\+]+$')
 
 in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t9.ssa'
-inputRanges = [vrange.VRange(200, 300)]
+filename = 'benchmark/t10.ssa'
+inputRanges = [vrange.VRange(30, 50), vrange.VRange(90, 100)]
 outputRange = vrange.VRange('-', '+')
 
 ftab, stab = symtab.get_symtab(filename)
@@ -569,17 +569,6 @@ for n in graph.nodeList:
         dot.edge(str(id(n)), str(id(c)))
 dot.render('./CG.gv')
 
-dotR = Digraph('CGR')
-for n in graph.nodeList:
-    dotR.node(str(id(n)), n.__str__())
-
-for n in graph.nodeList:
-    for src in n.srcList:
-        dotR.edge(str(id(src)), str(id(n)))
-    if n.controlled is not None:
-        dotR.edge(str(id(n.controlled)), str(id(n)))
-dotR.render('./CGR.gv')
-
 graph.buildEntryExit(inputRanges)
 compressed = CGCompressed(graph)
 
@@ -595,17 +584,45 @@ for sn in compressed.superNodes:
         dot2.edge(str(id(sn)), str(id(used)))
 dot2.render('CGC.gv')
 
-dot2R = Digraph('CGCompressedR')
-for sn in compressed.superNodes:
-    label = ''
-    for n in sn.nodeSet:
-        label = label + ' | ' + n.__str__()
-    dot2R.node(str(id(sn)), label)
+i = 0
 
-for sn in compressed.superNodes:
-    for src in sn.srcSet:
-        dot2R.edge(str(id(src)), str(id(sn)))
-dot2R.render('CGCR.gv')
+for sn in compressed.topologicalOrdering:
+    sn.replaceFuture()  # replace future resolved by previous superNode
+    sn.widen()
+    # dot3 = Digraph('CGV')
+    # for n in graph.nodeList:
+    #     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
+    # for n in graph.nodeList:
+    #     for used in n.usedList:
+    #         dot3.edge(str(id(n)), str(id(used)))
+    #     for c in n.control:
+    #         dot3.edge(str(id(n)), str(id(c)))
+    # dot3.render('./CGV{}W.gv'.format(i))
+    # i = i+1
+    sn.replaceFuture()  # replace future resolved just now
+    sn.narrow()
+    # dot3 = Digraph('CGV')
+    # for n in graph.nodeList:
+    #     dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
+    # for n in graph.nodeList:
+    #     for used in n.usedList:
+    #         dot3.edge(str(id(n)), str(id(used)))
+    #     for c in n.control:
+    #         dot3.edge(str(id(n)), str(id(c)))
+    # dot3.render('./CGV{}N.gv'.format(i))
+    # i = i+1
+
+dot3 = Digraph('CGV')
+for n in graph.nodeList:
+    dot3.node(str(id(n)), n.__str__()+':'+str(n.vrange))
+
+for n in graph.nodeList:
+    for used in n.usedList:
+        dot3.edge(str(id(n)), str(id(used)))
+    for c in n.control:
+        dot3.edge(str(id(n)), str(id(c)))
+dot3.render('./CGV.gv')
 
 # compressed.resolveSCC()
-# outputRange = compressed.cg.exitNode.vrange
+outputRange = compressed.cg.exitNode.eRange()
+print(outputRange)

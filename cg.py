@@ -45,7 +45,7 @@ class CGNode:
             return self.vrange
         if self.op is None:
             return self.vrange
-        if self.op == 'PHI':
+        if self.op == 'phi':
             # no range is only handled in the case
             # in all other cases, if a src has no range
             # current node also have no range
@@ -53,6 +53,7 @@ class CGNode:
                 return self.srcList[1].vrange
             if self.srcList[1].vrange is None:
                 return self.srcList[0].vrange
+            return self.srcList[0].vrange.union(self.srcList[1].vrange)
 
         for src in self.srcList:
             if src.vrange is None:
@@ -62,11 +63,11 @@ class CGNode:
         # bu this is handled in operators
         if self.op == '+':
             return self.srcList[0].vrange + self.srcList[1].vrange
-        if self.op == '+':
+        if self.op == '-':
             return self.srcList[0].vrange - self.srcList[1].vrange
-        if self.op == '+':
+        if self.op == '*':
             return self.srcList[0].vrange * self.srcList[1].vrange
-        if self.op == '+':
+        if self.op == '/':
             return self.srcList[0].vrange / self.srcList[1].vrange
         if self.op == 'assign':
             return self.srcList[0].vrange
@@ -75,11 +76,19 @@ class CGNode:
         if self.op == 'float':
             return self.srcList[0].vrange.toFloat()
         if self.op == 'inter':
-            if isinstance(self.srcList[0], Future):
-                return self.srcList[1].eRange()
-            if isinstance(self.srcList[1], Future):
-                return self.srcList[0].eRange()
-            return self.srcList[0].vrange.intersect(self.srcList[1].vrange)
+            vr0 = self.srcList[0].vrange
+            vr1 = self.srcList[1].vrange
+            if not vr0.isEmpty:
+                if vr0.beginIsFuture:
+                    vr0 = VRange('-', vr0.end)
+                if vr0.endIsFuture:
+                    vr0 = VRange(vr0.begin, '+')
+            if not vr1.isEmpty:
+                if vr1.beginIsFuture:
+                    vr1 = VRange('-', vr1.end)
+                if vr1.endIsFuture:
+                    vr1 = VRange(vr1.begin, '+')
+            return vr0.intersect(vr1)
         if self.op in ['<', '>', '<=', '>=', '==', '!=']:
             result = self.srcList[0].vrange.compare(
                 self.srcList[1].vrange, self.op)
@@ -120,8 +129,6 @@ class CGSub:
 
         stripParen = re.compile('(\(\d+?\))')
 
-        print(exprList)
-
         for ex in exprList:
             for i in range(len(ex.src)):
                 if isinstance(ex.src[i], str):
@@ -131,8 +138,6 @@ class CGSub:
             ex.dst = stripParen.sub('', ex.dst)
 
         args = [stripParen.sub('', arg) for arg in args]
-
-        print(exprList)
 
         for ex in exprList:
             if ex.op == 'return':
@@ -191,7 +196,10 @@ class CGSub:
                     controller.control.append(node)
 
         for arg in args:
-            self.entry.append(self.namedNode[arg])
+            eNode = self.getNode(arg)
+            if eNode is None:
+                eNode = CGNode(True, arg)
+            self.entry.append(eNode)
 
         if len(returnList) == 0:
             return
@@ -231,16 +239,28 @@ class CGSuperNode:
                 if not node.isSym:
                     continue
                 # sym node should only have one predecessor
-                eRange = node.srcList[0].eRange()
-                if eRange != node.vrange:
-                    change = True
+                if len(node.srcList) == 0:
                     if node.vrange is None:
-                        node.vrange = eRange
+                        node.vrange = VRange('-', '+')
+                        change = True
+                    continue
+
+                eRange = node.srcList[0].eRange()
+                if eRange is None:
+                    continue
+                elif node.vrange is None:
+                    change = True
+                    node.vrange = VRange(eRange)
+                elif eRange != node.vrange:
+                    if node.vrange.isEmpty:
+                        node.vrange = VRange(eRange)
                     else:
                         if eRange.begin < node.vrange.begin:
                             node.vrange.begin = XNum('-')
+                            change = True
                         if eRange.end > node.vrange.end:
                             node.vrange.end = XNum('+')
+                            change = True
 
     def narrow(self):
         change = True
@@ -250,36 +270,51 @@ class CGSuperNode:
                 if not node.isSym:
                     continue
                 # sym node should only have one predecessor
+                if len(node.srcList) == 0:
+                    continue
+
                 eRange = node.srcList[0].eRange()
                 iRange = node.vrange
                 assert iRange is not None
-                if iRange.begin == XNum('-') and eRange.begin != XNum('-'):
-                    iRange.begin = XNum(eRange.begin)
-                    change = True
-                if iRange.end == XNum('+') and eRange.end != XNum('+'):
-                    iRange.end = XNum(eRange.end)
-                    change = True
-                if iRange.begin > eRange.begin:
-                    iRange.begin = XNum(eRange.begin)
-                if iRange.end < eRange.end:
-                    iRange.end = XNum(eRange.end)
+                if iRange != eRange:
+                    if iRange.isEmpty:
+                        node.vrange = VRange(eRange.begin, eRange.end)
+                        change = True
+                        continue
+                    if eRange.isEmpty:
+                        node.vrange - VRange()
+                        continue
+                    if iRange.begin == XNum('-') and eRange.begin != XNum('-'):
+                        iRange.begin = XNum(eRange.begin)
+                        change = True
+                    if iRange.end == XNum('+') and eRange.end != XNum('+'):
+                        iRange.end = XNum(eRange.end)
+                        change = True
+                    if iRange.begin > eRange.begin:
+                        iRange.begin = XNum(eRange.begin)
+                        change = True
+                    if iRange.end < eRange.end:
+                        iRange.end = XNum(eRange.end)
+                        change = True
 
     def replaceFuture(self):
         # replace futures in this superNode
         for node in self.nodeSet:
-            if isinstance(node, VRange):
-                if node.beginIsFuture or node.endIsFuture:
+            if not node.isSym and node.op is None and not node.vrange.isEmpty:
+                vr = node.vrange
+                if vr.beginIsFuture or vr.endIsFuture:
                     ctr = node.controlled
-                    if str.vrange is None:
+                    if ctr.vrange is None:
                         return
-                    if node.beginIsFuture:
-                        node.begin = XNum(node.begin.delta) + \
-                                     ctr.vrange.begin
-                        node.beginIsFuture = False
-                    if node.endIsFuture:
-                        node.end = XNum(node.end.delta) + \
-                                   ctr.vrange.end
-                        node.endIsFuture = False
+                    if ctr.vrange.isEmpty:
+                        node.vrange = VRange()
+                        return
+                    if vr.beginIsFuture:
+                        vr.begin = XNum(vr.begin.delta) + ctr.vrange.begin
+                        vr.beginIsFuture = False
+                    if vr.endIsFuture:
+                        vr.end = XNum(vr.end.delta) + ctr.vrange.end
+                        vr.endIsFuture = False
 
 
 class CGCompressed:
@@ -294,16 +329,12 @@ class CGCompressed:
             if node not in visited:
                 self.forwardDFS(visited, finished, node)
 
-        for node in finished:
-            print(node)
-
         # compress SCC
         visited.clear()
         for node in reversed(finished):
             if node not in visited:
                 nodeSet = self.backwardDFS(visited, node)
                 self.superNodes.append(CGSuperNode(nodeSet))
-                print(nodeSet)
 
         for sn in self.superNodes:
             for node in sn.nodeSet:
@@ -326,7 +357,6 @@ class CGCompressed:
                 self.topologicalSort(visited, self.topologicalOrdering, sn)
 
     def forwardDFS(self, visited, finished, node):
-        print('visit '+str(node))
         visited.append(node)
         for succ in node.usedList:
             if succ not in visited:
@@ -335,10 +365,8 @@ class CGCompressed:
             if succ not in visited:
                 self.forwardDFS(visited, finished, succ)
         finished.append(node)
-        print('finifsh '+(str(node)))
 
     def backwardDFS(self, visited, node):
-        print('visit '+str(node))
         superNode = set([node])
         visited.append(node)
         for pred in node.srcList:
@@ -347,7 +375,6 @@ class CGCompressed:
         if node.controlled is not None and node.controlled not in visited:
             superNode = superNode.union(
                 self.backwardDFS(visited, node.controlled))
-        print('finifsh '+(str(node)))
         return superNode
 
     def topologicalSort(self, visited, ordered, superNode):

@@ -1,4 +1,6 @@
 class XNum:
+    epsilon = 1e-3
+
     def __init__(self, num):
         if isinstance(num, XNum):
             self.num = num.num
@@ -15,6 +17,9 @@ class XNum:
 
     def __eq__(self, other):
         return self.num == other.num
+
+    def __ne__(self, other):
+        return not self == other
 
     def __lt__(self, other):
         if self == other:
@@ -74,7 +79,7 @@ class XNum:
             else:
                 return XNum('-')
         else:
-            return self.num * other.num
+            return XNum(self.num * other.num)
 
     def __truediv__(self, other):
         if other.num == 0:
@@ -97,6 +102,9 @@ class XNum:
     def toInt(self):
         if isinstance(self.num, str):
             return XNum(self)
+        r = round(self.num, 0)
+        if abs(r-self.num) < self.epsilon:
+            return XNum(int(r))
         return XNum(int(self.num))
 
     def toFloat(self):
@@ -125,6 +133,16 @@ class VRange:
             return
         else:
             self.isEmpty = False
+
+        if end is None:
+            self.isEmpty = begin.isEmpty
+            if not self.isEmpty:
+                self.beginIsFuture = begin.beginIsFuture
+                self.endIsFuture = begin.endIsFuture
+                self.begin = XNum(begin.begin)
+                self.end = XNum(begin.end)
+            return
+
         if type(begin) is tuple:
             self.beginIsFuture = True
             self.begin = Future(begin[0], begin[1])
@@ -140,7 +158,10 @@ class VRange:
             self.end = XNum(end)
 
     def __str__(self):
-        return "[{}, {}]".format(self.begin, self.end)
+        if self.isEmpty:
+            return '[empty]'
+        else:
+            return "[{}, {}]".format(self.begin, self.end)
 
     __repr__ = __str__
 
@@ -164,11 +185,26 @@ class VRange:
     def __truediv__(self, other):
         if self.isEmpty or other.isEmpty:
             return VRange()
-        if other.begin <= 0 and 0 <= other.end:
+        if other.begin <= XNum(0) and XNum(0) <= other.end:
             return VRange('-', '+')
         ends = [self.begin/other.begin, self.begin/other.end,
                 self.end/other.begin, self.end/other.end]
         return VRange(min(ends), max(ends))
+
+    def __eq__(self, other):
+        if self.isEmpty and other.isEmpty:
+            return True
+        elif self.isEmpty:
+            return False
+        elif other.isEmpty:
+            return False
+
+        if self.begin != other.begin or self.end != other.end:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
 
     def intersect(self, other):
         if self.isEmpty or other.isEmpty or \
@@ -188,6 +224,8 @@ class VRange:
                           max(self.end, other.end))
 
     def toInt(self):
+        if self.isEmpty:
+            return VRange()
         newBegin = self.begin
         if not self.beginIsFuture:
             newBegin = newBegin.toInt()
@@ -197,6 +235,8 @@ class VRange:
         return VRange(newBegin, newEnd)
 
     def toFloat(self):
+        if self.isEmpty:
+            return VRange()
         newBegin = self.begin
         if not self.beginIsFuture:
             newBegin = newBegin.toFloat()
@@ -206,6 +246,13 @@ class VRange:
         return VRange(newBegin, newEnd)
 
     def compare(self, other, op):
+        if self.isEmpty and other.isEmpty:
+            return True
+        elif self.isEmpty:
+            return False
+        elif other.isEmpty:
+            return False
+
         sb = self.begin
         se = self.end
         ob = other.begin
