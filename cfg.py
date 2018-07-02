@@ -8,14 +8,14 @@ from graphviz import Digraph
 tele = re.compile("(<.+?>)")
 cond_tele = re.compile("\((.+)\)")
 num_tele = re.compile("^\d+$")
-real_tele = re.compile(r'^\-?[0-9\.]+$')
+real_tele = re.compile(r'^\-?[0-9\.e\-\+]+$')
 
 in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t5.ssa'
+filename = 'benchmark/t10.ssa'
 inputRanges = [vrange.VRange(200, 300)]
 outputRange = vrange.VRange('-', '+')
 
@@ -346,7 +346,9 @@ for i in range(len(ftab)):
 
 for h in range(len(ftab)):
     func = ftab[h]
-    for b in func.blocks:
+    for z in range(len(func.blocks)):
+        b = func.blocks[z]
+    # for b in func.blocks:
         for i in range(len(b.cond)):
             if b.cond[i].uncond:
                 continue
@@ -407,6 +409,9 @@ for h in range(len(ftab)):
                         if func.blocks[jindex].name == shit:
                             break
                     # hhh
+                    if jindex == z:
+                        continue
+
                     for fi in range(len(func.blocks[jindex].lines)):
                         func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(from_str, to_str)
                     for fi in range(len(func.blocks[jindex].cond)):
@@ -455,6 +460,9 @@ for h in range(len(ftab)):
                         if func.blocks[jindex].name == shit:
                             break
                     # hhh
+                    if jindex == z:
+                        continue
+
                     for fi in range(len(func.blocks[jindex].lines)):
                         func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(
                             from_str, to_str)
@@ -520,6 +528,9 @@ for h in range(len(ftab)):
                         if func.blocks[jindex].name == shit:
                             break
                     # hhh
+                    if jindex == z:
+                        continue
+
                     for fi in range(len(func.blocks[jindex].lines)):
                         func.blocks[jindex].lines[fi] = func.blocks[jindex].lines[fi].replace(
                             from_str, to_str)
