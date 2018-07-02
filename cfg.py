@@ -15,7 +15,9 @@ in_tele = re.compile(r'([_a-zA-Z0-9]+\(D\)(\(.+?\))?)')
 reverse_dict = dict({"<":">=", ">":"<=", "<=":">", ">=":"<", "==":"!=", "!=": "=="})
 
 
-filename = 'benchmark/t9.ssa'
+filename = 'benchmark/t5.ssa'
+inputRanges = [vrange.VRange(200, 300)]
+outputRange = vrange.VRange('-', '+')
 
 ftab, stab = symtab.get_symtab(filename)
 itab = []
@@ -306,6 +308,7 @@ for func in ftab:
             if flag:
                 func.blocks[index].pre.append(b.name)
 
+ 
 # 求DOM集合
 for func in ftab:
     dom = {}
@@ -538,28 +541,71 @@ for func in ftab:
 
 graph = CG()
 for func, args in zip(ftab, itab):
-    constraints = []
-    for b in func.blocks:
-        constraints.extend(b.constraints)
-    for c in constraints:
-        print(c)
-    graph.addFunc(func.name, constraints, args)
+    if func.name == 'foo':
+        constraints = []
+        for b in func.blocks:
+            constraints.extend(b.constraints)
+        for c in constraints:
+            print(c)
+        graph.addFunc(func.name, constraints, args)
+    else:
+        for i in range(func.called_times):
+            constraints = []
+            for b in func.blocks:
+                constraints.extend(b.constraints)
+            for c in constraints:
+                print(c)
+            graph.addFunc(func.name+'_{}'.format(i), constraints, args)
 
 graph.connectFunc()
-dot = Digraph('test')
-for n in graph.allNodeList:
+dot = Digraph('CG')
+for n in graph.nodeList:
     dot.node(str(id(n)), n.__str__())
 
-for n in graph.allNodeList:
+for n in graph.nodeList:
     for used in n.usedList:
         dot.edge(str(id(n)), str(id(used)))
-    if n.control is not None:
-        dot.edge(str(id(n)), str(id(n.control)))
+    for c in n.control:
+        dot.edge(str(id(n)), str(id(c)))
+dot.render('./CG.gv')
 
-dot.render('./test.gv')
+dotR = Digraph('CGR')
+for n in graph.nodeList:
+    dotR.node(str(id(n)), n.__str__())
 
+for n in graph.nodeList:
+    for src in n.srcList:
+        dotR.edge(str(id(src)), str(id(n)))
+    if n.controlled is not None:
+        dotR.edge(str(id(n.controlled)), str(id(n)))
+dotR.render('./CGR.gv')
 
-# graph.buildEntryExit(inputRanges)
-# compressed = CGCompressed(graph)
+graph.buildEntryExit(inputRanges)
+compressed = CGCompressed(graph)
+
+dot2 = Digraph('CGCompressed')
+for sn in compressed.superNodes:
+    label = ''
+    for n in sn.nodeSet:
+        label = label + ' | ' + n.__str__()
+    dot2.node(str(id(sn)), label)
+
+for sn in compressed.superNodes:
+    for used in sn.usedSet:
+        dot2.edge(str(id(sn)), str(id(used)))
+dot2.render('CGC.gv')
+
+dot2R = Digraph('CGCompressedR')
+for sn in compressed.superNodes:
+    label = ''
+    for n in sn.nodeSet:
+        label = label + ' | ' + n.__str__()
+    dot2R.node(str(id(sn)), label)
+
+for sn in compressed.superNodes:
+    for src in sn.srcSet:
+        dot2R.edge(str(id(src)), str(id(sn)))
+dot2R.render('CGCR.gv')
+
 # compressed.resolveSCC()
-# Print(compressed.cg.exitNode.vrange)
+# outputRange = compressed.cg.exitNode.vrange
